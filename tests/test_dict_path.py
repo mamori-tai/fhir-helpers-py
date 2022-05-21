@@ -1,3 +1,5 @@
+import copy
+
 from assertpy import assert_that
 from loguru import logger
 
@@ -65,7 +67,7 @@ def test_higher_level_api():
     ).is_equal_to("1")
 
     assert_that(
-        finder({**dol3})
+        finder(copy.deepcopy(dol3))
         .update("medication.ingredients", where={"extension.url": "1"})
         .set("extension.value", "8")
     ).is_equal_to(
@@ -75,6 +77,23 @@ def test_higher_level_api():
                     {"extension": {"url": "1", "value": "8"}},
                     {"extension": {"url": "2", "value": "2"}},
                     {"extension": {"url": "3", "value": "3"}},
+                ]
+            }
+        }
+    )
+
+    assert_that(
+        finder(copy.deepcopy(dol3))
+        .update("medication.ingredients")
+        .append({"extension": {"url": "4", "value": "4"}})
+    ).is_equal_to(
+        {
+            "medication": {
+                "ingredients": [
+                    {"extension": {"url": "1", "value": "1"}},
+                    {"extension": {"url": "2", "value": "2"}},
+                    {"extension": {"url": "3", "value": "3"}},
+                    {"extension": {"url": "4", "value": "4"}},
                 ]
             }
         }
@@ -110,7 +129,7 @@ def test_set_attribute_list_third():
 
 
 def test_raise_when_set_attribute_integer():
-    assert_that(set_attribute_for_path).raises(ValueError).when_called_with(
+    assert_that(set_attribute_for_path).raises(PathError).when_called_with(
         {}, path="0.label.0.ingredient.form", value="comprimé"
     )
 

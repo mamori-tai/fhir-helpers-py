@@ -113,7 +113,7 @@ def set_attribute_for_path(target: Mapping, /, path: Union[str, List[str]], valu
     path_as_list = _get_path_as_list(path)
 
     if path_as_list[0].isnumeric():
-        raise ValueError("first item of the path can not be an integer")
+        raise PathError("first item of the path can not be an integer")
 
     current = target
 
@@ -162,25 +162,42 @@ def set_attribute_for_path(target: Mapping, /, path: Union[str, List[str]], valu
     return target
 
 
-class _Updater:
-    def __init__(self, obj: Dict[str, Any], path: List[Union[str, Mapping]]):
+class _ObjectHandler:
+    def __init__(self, obj: Dict[str, Any], path: List[Union[str, Mapping]], **kwargs):
         self.obj = obj
         self.path = path
+        self.kwargs = kwargs
 
+
+class _Updater(_ObjectHandler):
     def set(self, path: Union[str, List[str]], value: Any):
         return set_attribute_for_path(
             self.obj, self.path + _get_path_as_list(path), value
         )
 
+    def append(self, value: Any):
+        value_for_path = get_attribute_for_path(
+            self.obj, path=self.path, **self.kwargs
+        )
+        if not isinstance(value_for_path, (list, set, tuple)):
+            raise PathError(
+                f"Can not add value to path {self.path=}, this is not an iterable"
+            )
 
-class _Getter:
-    def __init__(
-        self, obj: Dict[str, Any], path: List[Union[str, Mapping]], **kwargs: Any
-    ):
-        self.obj = obj
-        self.path = path
-        self.kwargs = kwargs
+        if isinstance(value_for_path, list):
+            value_for_path.append(value)
+        elif isinstance(value_for_path, set):
+            value_for_path.add(value)
+        elif isinstance(value_for_path, tuple):
+            set_attribute_for_path(
+                self.obj,
+                self.path,
+                tuple([*list(value_for_path), value]),
+            )
+        return self.obj
 
+
+class _Getter(_ObjectHandler):
     def get(self, path: Union[str, List[str]]):
         return get_attribute_for_path(
             self.obj, path=self.path + _get_path_as_list(path), **self.kwargs
